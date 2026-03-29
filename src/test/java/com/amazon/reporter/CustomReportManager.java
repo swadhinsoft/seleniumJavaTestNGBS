@@ -1,5 +1,6 @@
 package com.amazon.reporter;
 
+import com.amazon.reporter.model.StepModel;
 import com.amazon.reporter.model.TestResultModel;
 import com.amazon.utils.ConfigReader;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -81,6 +82,28 @@ public class CustomReportManager {
         m.setDurationMs(System.currentTimeMillis() - m.getStartTime());
         results.add(m);
         current.remove();
+    }
+
+    // ── Step logging ─────────────────────────────────────────────────────────
+
+    /**
+     * Log a neutral step (→ arrow in report).
+     * <pre>{@code
+     * CustomReportManager.getInstance().step("Navigate to login page");
+     * }</pre>
+     */
+    public void step(String description)     { addStep(description, "INFO"); }
+
+    /** Log a step that explicitly passed (✓ in report). */
+    public void stepPass(String description) { addStep(description, "PASS"); }
+
+    /** Log a step that explicitly failed (✗ in report). */
+    public void stepFail(String description) { addStep(description, "FAIL"); }
+
+    private void addStep(String description, String status) {
+        TestResultModel m = current.get();
+        if (m == null) return;
+        m.addStep(new StepModel(description, status));
     }
 
     // ── Report generation ────────────────────────────────────────────────────
