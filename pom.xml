@@ -9,6 +9,13 @@
     <version>1.0-SNAPSHOT</version>
     <packaging>jar</packaging>
 
+    <repositories>
+        <repository>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
+        </repository>
+    </repositories>
+
     <properties>
         <maven.compiler.source>11</maven.compiler.source>
         <maven.compiler.target>11</maven.compiler.target>
@@ -69,6 +76,14 @@
             <version>7.15.0</version>
             <scope>test</scope>
             <optional>true</optional>
+        </dependency>
+
+        <!-- OpenReporter — HTML test report (JitPack) -->
+        <dependency>
+            <groupId>com.github.swadhinsoft</groupId>
+            <artifactId>open-reporter</artifactId>
+            <version>1.0.0</version>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 
