@@ -56,9 +56,9 @@ public class CustomReportManager {
 
     // ── Package-private: used by adapters ────────────────────────────────────
 
-    WebDriver getRegisteredDriver() { return driverHolder.get(); }
+    public WebDriver getRegisteredDriver() { return driverHolder.get(); }
 
-    String getRegisteredBrowser() {
+    public String getRegisteredBrowser() {
         String b = browserHolder.get();
         return (b != null && !b.isEmpty()) ? b : System.getProperty("browser", "unknown");
     }
