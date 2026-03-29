@@ -1,0 +1,15 @@
+{
+  "baseUrl": "https://www.amazon.in",
+  "credentials": {
+    "username": "testuser@example.com",
+    "password": "TestPass@123"
+  },
+  "timeouts": {
+    "explicitWait": 15,
+    "pageLoad": 30
+  },
+  "report": {
+    "title": "Amazon.in Automation Report",
+    "name": "Test Execution Results"
+  }
+}

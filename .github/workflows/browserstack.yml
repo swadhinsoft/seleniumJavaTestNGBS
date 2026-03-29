@@ -36,12 +36,18 @@ jobs:
           BUILD_ID: ${{ github.run_id }}
         run: mvn test -P browserstack
 
-      - name: Upload TestNG reports
+      - name: Upload Extent Spark report
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: testng-reports-${{ github.run_id }}
-          path: |
-            target/surefire-reports/
-            target/surefire-reports/*.xml
+          name: extent-spark-report-${{ github.run_id }}
+          path: target/extent-reports/
+          retention-days: 7
+
+      - name: Upload TestNG surefire reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: testng-surefire-reports-${{ github.run_id }}
+          path: target/surefire-reports/
           retention-days: 7

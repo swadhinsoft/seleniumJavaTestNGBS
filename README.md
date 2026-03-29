@@ -12,6 +12,8 @@ A Selenium Java test automation framework for [Amazon.in](https://www.amazon.in)
 | Selenium WebDriver | 4.18.1 | Browser automation |
 | TestNG | 7.9.0 | Test runner |
 | WebDriverManager | 5.7.0 | Auto-manages local browser drivers |
+| ExtentReports Spark | 5.1.1 | HTML test reports |
+| Jackson | 2.17.0 | JSON config parsing |
 | Maven | 3.x | Build & dependency management |
 | BrowserStack Automate | — | Cloud cross-browser execution |
 | GitHub Actions | — | CI/CD pipeline |
@@ -24,23 +26,29 @@ A Selenium Java test automation framework for [Amazon.in](https://www.amazon.in)
 seleniumJavaTestNGBS/
 ├── .github/
 │   └── workflows/
-│       └── browserstack.yml          # GitHub Actions CI/CD pipeline
+│       └── browserstack.yml               # GitHub Actions CI/CD pipeline
 ├── src/
 │   └── test/
 │       ├── java/
 │       │   └── com/amazon/
 │       │       ├── base/
-│       │       │   └── BaseTest.java          # Driver setup (local + BrowserStack)
+│       │       │   └── BaseTest.java      # Driver setup (local + BrowserStack)
 │       │       ├── pages/
 │       │       │   ├── HomePage.java
 │       │       │   ├── SearchResultsPage.java
 │       │       │   └── ProductPage.java
-│       │       └── tests/
-│       │           ├── HomePageTest.java       # TC01–TC03
-│       │           └── SearchTest.java         # TC04–TC06
+│       │       ├── tests/
+│       │       │   ├── HomePageTest.java  # TC01–TC03
+│       │       │   └── SearchTest.java    # TC04–TC06
+│       │       └── utils/
+│       │           ├── ConfigReader.java  # Reads config.json (URL, credentials, timeouts)
+│       │           ├── ExtentManager.java # Singleton ExtentReports instance + ThreadLocal test
+│       │           ├── ExtentTestListener.java  # TestNG listener — logs pass/fail/skip + screenshot
+│       │           └── ScreenshotUtil.java      # Captures PNG screenshot on failure
 │       └── resources/
-│           ├── testng.xml                      # Local parallel execution config
-│           └── testng-browserstack.xml         # BrowserStack execution config
+│           ├── config.json                # App config — baseUrl, credentials, timeouts
+│           ├── testng.xml                 # Local parallel execution config
+│           └── testng-browserstack.xml    # BrowserStack execution config
 ├── pom.xml
 └── README.md
 ```
@@ -75,6 +83,45 @@ BaseTest  (driver lifecycle, browser factory)
 ### Thread-Safe Driver
 
 `BaseTest` uses `ThreadLocal<WebDriver>` so each parallel thread gets its own isolated driver instance. All test classes access the driver via `getDriver()`.
+
+### Utilities
+
+| Class | Responsibility |
+|-------|---------------|
+| `ConfigReader` | Loads `config.json` at startup via Jackson; exposes typed getters for URL, credentials, and timeouts |
+| `ExtentManager` | Singleton `ExtentReports` + `ThreadLocal<ExtentTest>` so parallel threads each write to their own test node |
+| `ExtentTestListener` | Implements `ITestListener` + `ISuiteListener`; logs PASS/FAIL/SKIP, attaches failure screenshots, flushes the report once after the full suite |
+| `ScreenshotUtil` | Takes a PNG via `TakesScreenshot`, saves to `target/extent-reports/screenshots/`, returns a relative path for embedding in the Spark report |
+
+### Config Management
+
+All environment-specific values live in `src/test/resources/config.json`:
+
+```json
+{
+  "baseUrl": "https://www.amazon.in",
+  "credentials": {
+    "username": "testuser@example.com",
+    "password": "TestPass@123"
+  },
+  "timeouts": {
+    "explicitWait": 15,
+    "pageLoad": 30
+  },
+  "report": {
+    "title": "Amazon.in Automation Report",
+    "name": "Test Execution Results"
+  }
+}
+```
+
+### Extent Spark Report
+
+After every run the report is written to `target/extent-reports/index.html`. Open it in any browser. It includes:
+- Pass / Fail / Skip counts with a pie chart
+- Per-test logs and browser/OS category tags
+- Failure screenshots embedded inline
+- System info (OS, Java version, framework)
 
 ---
 
@@ -183,10 +230,14 @@ Add BrowserStack credentials as GitHub repository secrets:
 | `BROWSERSTACK_USERNAME` | Your BrowserStack username |
 | `BROWSERSTACK_ACCESS_KEY` | Your BrowserStack access key |
 
-### Test Reports
+### Artifacts uploaded per run
 
-TestNG XML reports are uploaded as artifacts after every run (retained 7 days).
-Download from: **Actions** → select a run → **Artifacts** section.
+| Artifact | Contents | Retention |
+|----------|----------|-----------|
+| `extent-spark-report-<run_id>` | `target/extent-reports/` — Spark HTML + screenshots | 7 days |
+| `testng-surefire-reports-<run_id>` | `target/surefire-reports/` — TestNG XML | 7 days |
+
+Download from: **Actions** → select a run → **Artifacts** section. Unzip and open `index.html` in a browser to view the Spark report.
 
 ---
 

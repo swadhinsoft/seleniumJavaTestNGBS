@@ -2,6 +2,10 @@
 <!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
 <suite name="Amazon.in Test Suite" verbose="1" parallel="tests" thread-count="4">
 
+    <listeners>
+        <listener class-name="com.amazon.utils.ExtentTestListener"/>
+    </listeners>
+
     <!-- Chrome Tests -->
     <test name="Chrome - Home Page Tests">
         <parameter name="browser" value="chrome"/>

@@ -1,5 +1,6 @@
 package com.amazon.base;
 
+import com.amazon.utils.ConfigReader;
 import io.github.bonigarcia.wdm.WebDriverManager;
 import org.openqa.selenium.MutableCapabilities;
 import org.openqa.selenium.WebDriver;
@@ -22,30 +23,27 @@ import java.util.HashMap;
 public class BaseTest {
 
     private static final ThreadLocal<WebDriver> driverThreadLocal = new ThreadLocal<>();
-    protected static final String BASE_URL = "https://www.amazon.in";
     private static final String BS_HUB = "https://hub-cloud.browserstack.com/wd/hub";
 
-    protected WebDriver getDriver() {
+    public WebDriver getDriver() {
         return driverThreadLocal.get();
     }
 
     @Parameters({"browser", "browser_version", "os", "os_version", "execution"})
     @BeforeMethod
     public void setUp(
-            @Optional("chrome")      String browser,
-            @Optional("latest")      String browserVersion,
-            @Optional("")            String os,
-            @Optional("")            String osVersion,
-            @Optional("local")       String execution
+            @Optional("chrome")  String browser,
+            @Optional("latest")  String browserVersion,
+            @Optional("")        String os,
+            @Optional("")        String osVersion,
+            @Optional("local")   String execution
     ) throws Exception {
-        WebDriver driver;
-        if ("browserstack".equalsIgnoreCase(execution)) {
-            driver = createBrowserStackDriver(browser, browserVersion, os, osVersion);
-        } else {
-            driver = createLocalDriver(browser);
-        }
+        WebDriver driver = "browserstack".equalsIgnoreCase(execution)
+                ? createBrowserStackDriver(browser, browserVersion, os, osVersion)
+                : createLocalDriver(browser);
+
         driverThreadLocal.set(driver);
-        driver.get(BASE_URL);
+        driver.get(ConfigReader.getBaseUrl());
     }
 
     @AfterMethod
@@ -57,7 +55,7 @@ public class BaseTest {
         }
     }
 
-    // ── Local driver factory ────────────────────────────────────────────────
+    // ── Local driver factory ─────────────────────────────────────────────────
 
     private WebDriver createLocalDriver(String browser) {
         switch (browser.toLowerCase()) {
@@ -81,7 +79,7 @@ public class BaseTest {
         }
     }
 
-    // ── BrowserStack remote driver factory ─────────────────────────────────
+    // ── BrowserStack remote driver factory ──────────────────────────────────
 
     private WebDriver createBrowserStackDriver(
             String browser, String browserVersion, String os, String osVersion
@@ -94,14 +92,14 @@ public class BaseTest {
         }
 
         HashMap<String, Object> bstackOptions = new HashMap<>();
-        bstackOptions.put("userName", username);
-        bstackOptions.put("accessKey", accessKey);
-        bstackOptions.put("projectName", "Amazon.in Tests");
-        bstackOptions.put("buildName", "Build-" + System.getenv().getOrDefault("BUILD_ID", "local"));
+        bstackOptions.put("userName",    username);
+        bstackOptions.put("accessKey",   accessKey);
+        bstackOptions.put("projectName", ConfigReader.getReportTitle());
+        bstackOptions.put("buildName",   "Build-" + System.getenv().getOrDefault("BUILD_ID", "local"));
         bstackOptions.put("sessionName", browser + " " + browserVersion + " on " + os + " " + osVersion);
+        bstackOptions.put("browserVersion", browserVersion);
         if (!os.isEmpty())        bstackOptions.put("os", os);
         if (!osVersion.isEmpty()) bstackOptions.put("osVersion", osVersion);
-        bstackOptions.put("browserVersion", browserVersion);
 
         MutableCapabilities caps;
         switch (browser.toLowerCase()) {

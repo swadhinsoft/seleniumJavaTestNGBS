@@ -2,6 +2,10 @@
 <!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
 <suite name="Amazon.in BrowserStack Suite" verbose="1" parallel="tests" thread-count="5">
 
+    <listeners>
+        <listener class-name="com.amazon.utils.ExtentTestListener"/>
+    </listeners>
+
     <!-- Chrome Latest on Windows 10 -->
     <test name="Chrome Latest - Windows 10">
         <parameter name="execution"        value="browserstack"/>
