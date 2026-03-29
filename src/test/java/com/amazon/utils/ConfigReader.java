@@ -48,4 +48,9 @@ public class ConfigReader {
     public static String getReportName() {
         return config.get("report").get("name").asText();
     }
+
+    public static String getLogoPath() {
+        JsonNode node = config.path("report").path("logo");
+        return node.isMissingNode() ? "" : node.asText("");
+    }
 }

@@ -10,6 +10,7 @@
   },
   "report": {
     "title": "Amazon.in Automation Report",
-    "name": "Test Execution Results"
+    "name": "Test Execution Results",
+    "logo": ""
   }
 }

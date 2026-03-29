@@ -1,6 +1,7 @@
 package com.amazon.reporter;
 
 import com.amazon.reporter.model.TestResultModel;
+import com.amazon.utils.ConfigReader;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.openqa.selenium.WebDriver;
 
@@ -10,27 +11,25 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
 /**
  * Core singleton for the custom reporter.
- * No com.amazon.* imports — fully framework-agnostic.
+ * No com.amazon.base.* imports — fully framework-agnostic.
  * Supports Selenium and Appium (both implement WebDriver).
  */
 public class CustomReportManager {
 
     private static final CustomReportManager INSTANCE = new CustomReportManager();
 
-    // ── Test result collection ───────────────────────────────────────────────
     private final List<TestResultModel> results =
             Collections.synchronizedList(new ArrayList<>());
-    private static final ThreadLocal<TestResultModel> current = new ThreadLocal<>();
-
-    // ── Driver / browser registration (pushed by the test framework) ─────────
-    private static final ThreadLocal<WebDriver> driverHolder  = new ThreadLocal<>();
-    private static final ThreadLocal<String>    browserHolder = new ThreadLocal<>();
+    private static final ThreadLocal<TestResultModel> current       = new ThreadLocal<>();
+    private static final ThreadLocal<WebDriver>       driverHolder  = new ThreadLocal<>();
+    private static final ThreadLocal<String>          browserHolder = new ThreadLocal<>();
 
     private static final String OUTPUT_DIR  = "target/custom-reports/";
     private static final String REPORT_FILE = OUTPUT_DIR + "report.html";
@@ -40,21 +39,16 @@ public class CustomReportManager {
 
     public static CustomReportManager getInstance() { return INSTANCE; }
 
-    // ── Driver registration API (called by any test base class / hook) ────────
+    // ── Driver registration API ──────────────────────────────────────────────
 
-    /** Register the WebDriver for the current thread (Selenium or Appium). */
-    public void registerDriver(WebDriver driver)   { driverHolder.set(driver); }
+    public void registerDriver(WebDriver driver) { driverHolder.set(driver); }
 
-    /** Unregister driver and browser after the test/teardown completes. */
     public void unregisterDriver() {
         driverHolder.remove();
         browserHolder.remove();
     }
 
-    /** Set the browser name for the current thread (e.g. "chrome", "firefox"). */
     public void setBrowser(String browser) { browserHolder.set(browser); }
-
-    // ── Package-private: used by adapters ────────────────────────────────────
 
     public WebDriver getRegisteredDriver() { return driverHolder.get(); }
 
@@ -103,7 +97,6 @@ public class CustomReportManager {
             System.out.println("╚══════════════════════════════════════════════╝\n");
         } catch (Exception e) {
             System.err.println("Custom report generation failed: " + e.getMessage());
-            e.printStackTrace();
         }
     }
 
@@ -120,15 +113,18 @@ public class CustomReportManager {
         long failed  = results.stream().filter(r -> "FAILED".equals(r.getStatus())).count();
         long skipped = results.stream().filter(r -> "SKIPPED".equals(r.getStatus())).count();
         long total   = results.size();
-        double passRate  = total > 0 ? (passed * 100.0 / total) : 0;
-        long totalMs     = results.stream().mapToLong(TestResultModel::getDurationMs).sum();
-        String duration  = totalMs >= 1000
+        double passRate = total > 0 ? (passed * 100.0 / total) : 0;
+        long totalMs    = results.stream().mapToLong(TestResultModel::getDurationMs).sum();
+        String duration = totalMs >= 1000
                 ? String.format("%.1fs", totalMs / 1000.0) : totalMs + "ms";
         String generated = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
         String jsonData  = new ObjectMapper().writeValueAsString(results);
 
+        // Logo — read from config path, embed as base64
+        String logoElement = buildLogoElement();
+
         return tpl
-                .replace("{{TITLE}}",          "Amazon.in Test Report")
+                .replace("{{TITLE}}",          ConfigReader.getReportTitle())
                 .replace("{{GENERATED_AT}}",   generated)
                 .replace("{{ENVIRONMENT}}",    "Amazon.in")
                 .replace("{{TOTAL}}",          String.valueOf(total))
@@ -137,6 +133,35 @@ public class CustomReportManager {
                 .replace("{{SKIPPED}}",        String.valueOf(skipped))
                 .replace("{{PASS_RATE}}",      String.format("%.1f", passRate))
                 .replace("{{TOTAL_DURATION}}", duration)
+                .replace("{{LOGO_ELEMENT}}",   logoElement)
                 .replace("{{TEST_DATA_JSON}}", jsonData);
+    }
+
+    /** Reads the logo from the path in config.json and returns an <img> HTML element,
+     *  or an empty string if the path is blank or the file is missing. */
+    private String buildLogoElement() {
+        try {
+            String path = ConfigReader.getLogoPath();
+            if (path == null || path.trim().isEmpty()) return "";
+
+            File file = new File(path);
+            if (!file.isAbsolute()) file = new File(System.getProperty("user.dir"), path);
+            if (!file.exists() || !file.isFile()) {
+                System.err.println("[CustomReporter] Logo not found: " + file.getAbsolutePath());
+                return "";
+            }
+
+            byte[] bytes = Files.readAllBytes(file.toPath());
+            String name  = file.getName().toLowerCase();
+            String mime  = name.endsWith(".svg")  ? "image/svg+xml"
+                         : name.endsWith(".jpg") || name.endsWith(".jpeg") ? "image/jpeg"
+                         : name.endsWith(".gif")  ? "image/gif"
+                         : "image/png";
+            String src = "data:" + mime + ";base64," + Base64.getEncoder().encodeToString(bytes);
+            return "<img src=\"" + src + "\" alt=\"Logo\" class=\"project-logo\"/>";
+        } catch (Exception e) {
+            System.err.println("[CustomReporter] Could not load logo: " + e.getMessage());
+            return "";
+        }
     }
 }
