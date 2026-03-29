@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>{{TITLE}}</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    :root{
+      --bg:#0d1117;--surface:#161b22;--surface2:#21262d;
+      --border:#30363d;--text:#e6edf3;--muted:#8b949e;
+      --pass:#3fb950;--pass-dim:rgba(63,185,80,.15);--pass-border:rgba(63,185,80,.35);
+      --fail:#f85149;--fail-dim:rgba(248,81,73,.15);--fail-border:rgba(248,81,73,.35);
+      --skip:#d29922;--skip-dim:rgba(210,153,34,.15);--skip-border:rgba(210,153,34,.35);
+      --accent:#58a6ff;--accent-dim:rgba(88,166,255,.12);
+      --radius:10px;--shadow:0 4px 24px rgba(0,0,0,.4);
+    }
+    body{background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;min-height:100vh;line-height:1.5}
+
+    /* ── Header ─────────────────────────────────────────────────────────── */
+    .header{background:linear-gradient(135deg,#161b22 0%,#0d1117 60%);border-bottom:1px solid var(--border);padding:2rem 2.5rem}
+    .header-inner{max-width:1400px;margin:0 auto;display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:1rem}
+    .logo{display:flex;align-items:center;gap:.75rem}
+    .logo-icon{width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,var(--accent),#a5d6ff);display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0}
+    .header-title{font-size:1.6rem;font-weight:700;background:linear-gradient(135deg,var(--accent) 0%,#a5d6ff 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+    .header-sub{color:var(--muted);font-size:.85rem;margin-top:.2rem}
+    .header-meta{text-align:right;font-size:.82rem;color:var(--muted)}
+    .header-meta span{display:block;margin-top:.2rem}
+    .header-meta strong{color:var(--text)}
+
+    /* ── Main ────────────────────────────────────────────────────────────── */
+    .main{max-width:1400px;margin:0 auto;padding:2rem 2.5rem}
+
+    /* ── Summary cards ───────────────────────────────────────────────────── */
+    .summary{display:grid;grid-template-columns:repeat(5,1fr);gap:1rem;margin-bottom:1.75rem}
+    .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem 1.5rem;position:relative;overflow:hidden;transition:transform .15s,box-shadow .15s}
+    .card:hover{transform:translateY(-2px);box-shadow:var(--shadow)}
+    .card::before{content:'';position:absolute;top:0;left:0;width:100%;height:3px}
+    .card.pass::before{background:var(--pass)}
+    .card.fail::before{background:var(--fail)}
+    .card.skip::before{background:var(--skip)}
+    .card.accent::before{background:var(--accent)}
+    .card.neutral::before{background:var(--border)}
+    .card-icon{font-size:1.6rem;margin-bottom:.5rem;opacity:.8}
+    .card-label{font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:.4rem}
+    .card-value{font-size:2.2rem;font-weight:800;line-height:1}
+    .card.pass  .card-value{color:var(--pass)}
+    .card.fail  .card-value{color:var(--fail)}
+    .card.skip  .card-value{color:var(--skip)}
+    .card.accent .card-value{color:var(--accent)}
+    .card-sub{font-size:.78rem;color:var(--muted);margin-top:.4rem}
+
+    /* ── Charts row ──────────────────────────────────────────────────────── */
+    .charts{display:grid;grid-template-columns:280px 1fr;gap:1.25rem;margin-bottom:1.75rem}
+    .chart-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem}
+    .chart-title{font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:1.25rem}
+    .donut-wrap{position:relative;height:200px}
+
+    /* Pass rate ring */
+    .rate-grid{display:grid;grid-template-columns:140px 1fr;gap:1.5rem;align-items:center}
+    .ring-wrap{display:flex;justify-content:center}
+    .ring{width:120px;height:120px;border-radius:50%;display:flex;align-items:center;justify-content:center;position:relative;background:conic-gradient(var(--pass) 0% {{PASS_RATE}}%,var(--surface2) {{PASS_RATE}}% 100%)}
+    .ring::before{content:'';width:88px;height:88px;border-radius:50%;background:var(--surface);position:absolute}
+    .ring-inner{position:relative;z-index:1;text-align:center}
+    .ring-pct{font-size:1.5rem;font-weight:800;color:var(--pass);line-height:1}
+    .ring-lbl{font-size:.65rem;color:var(--muted);margin-top:.15rem}
+
+    /* Browser bars */
+    .browser-list{flex:1}
+    .browser-row{display:flex;align-items:center;gap:.75rem;margin-bottom:.85rem}
+    .browser-row:last-child{margin-bottom:0}
+    .b-name{font-size:.82rem;color:var(--text);min-width:80px;text-transform:capitalize}
+    .b-track{flex:1;height:7px;background:var(--surface2);border-radius:99px;overflow:hidden}
+    .b-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--accent),#a5d6ff);transition:width .8s cubic-bezier(.4,0,.2,1)}
+    .b-count{font-size:.8rem;color:var(--muted);min-width:32px;text-align:right}
+
+    /* ── Toolbar ─────────────────────────────────────────────────────────── */
+    .toolbar{display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;margin-bottom:1rem}
+    .search-wrap{position:relative;flex:1;min-width:220px}
+    .search-icon{position:absolute;left:.85rem;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none;font-size:.9rem}
+    .search-input{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:.6rem .9rem .6rem 2.4rem;color:var(--text);font-size:.875rem;outline:none;transition:border-color .15s}
+    .search-input::placeholder{color:var(--muted)}
+    .search-input:focus{border-color:var(--accent)}
+    .filter-btn{padding:.5rem 1.1rem;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--muted);font-size:.82rem;cursor:pointer;transition:all .15s;white-space:nowrap}
+    .filter-btn:hover{background:var(--surface2);color:var(--text)}
+    .filter-btn.active{background:var(--accent-dim);border-color:var(--accent);color:var(--text)}
+    .filter-btn.pass-btn.active{background:var(--pass-dim);border-color:var(--pass-border);color:var(--pass)}
+    .filter-btn.fail-btn.active{background:var(--fail-dim);border-color:var(--fail-border);color:var(--fail)}
+    .filter-btn.skip-btn.active{background:var(--skip-dim);border-color:var(--skip-border);color:var(--skip)}
+
+    /* ── Results count ───────────────────────────────────────────────────── */
+    .result-meta{font-size:.8rem;color:var(--muted);margin-bottom:.6rem}
+
+    /* ── Test table ──────────────────────────────────────────────────────── */
+    .test-table{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+    .tbl-header{display:grid;grid-template-columns:14px 1fr 110px 100px 70px 28px;gap:1rem;align-items:center;padding:.65rem 1.25rem;border-bottom:1px solid var(--border);background:var(--surface2)}
+    .tbl-header span{font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+    .test-row{border-bottom:1px solid var(--border)}
+    .test-row:last-child{border-bottom:none}
+
+    .row-head{display:grid;grid-template-columns:14px 1fr 110px 100px 70px 28px;gap:1rem;align-items:center;padding:.9rem 1.25rem;cursor:pointer;transition:background .12s}
+    .row-head:hover{background:var(--surface2)}
+
+    .dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+    .dot.PASSED{background:var(--pass);box-shadow:0 0 7px var(--pass)}
+    .dot.FAILED{background:var(--fail);box-shadow:0 0 7px var(--fail)}
+    .dot.SKIPPED{background:var(--skip);box-shadow:0 0 7px var(--skip)}
+
+    .t-name{font-size:.875rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .t-desc{font-size:.75rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:.1rem}
+
+    .badge{display:inline-block;padding:.2rem .7rem;border-radius:99px;font-size:.68rem;font-weight:700;letter-spacing:.06em;white-space:nowrap}
+    .badge.PASSED{background:var(--pass-dim);color:var(--pass);border:1px solid var(--pass-border)}
+    .badge.FAILED{background:var(--fail-dim);color:var(--fail);border:1px solid var(--fail-border)}
+    .badge.SKIPPED{background:var(--skip-dim);color:var(--skip);border:1px solid var(--skip-border)}
+
+    .browser-chip{display:inline-flex;align-items:center;gap:.35rem;padding:.2rem .6rem;border-radius:6px;font-size:.72rem;background:var(--surface2);color:var(--muted);border:1px solid var(--border);max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-transform:capitalize}
+    .dur{font-size:.78rem;color:var(--muted);font-variant-numeric:tabular-nums}
+    .chevron{color:var(--muted);font-size:.9rem;transition:transform .2s;text-align:center;line-height:1}
+    .chevron.open{transform:rotate(180deg)}
+
+    /* ── Row body ────────────────────────────────────────────────────────── */
+    .row-body{display:none;border-top:1px solid var(--border);background:var(--bg);padding:1.25rem 1.5rem}
+    .row-body.open{display:block}
+    .section-lbl{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:1rem;margin-bottom:.5rem}
+    .section-lbl:first-child{margin-top:0}
+
+    .log-list{list-style:none}
+    .log-list li{font-size:.82rem;color:var(--text);padding:.3rem .75rem;border-left:2px solid var(--border);margin-bottom:.3rem;background:var(--surface);border-radius:0 4px 4px 0}
+
+    .err-box{background:var(--fail-dim);border:1px solid var(--fail-border);border-radius:8px;padding:1rem;font-family:"Courier New",monospace;font-size:.78rem;color:var(--fail);white-space:pre-wrap;word-break:break-all;max-height:180px;overflow-y:auto}
+    .stack-box{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:1rem;font-family:"Courier New",monospace;font-size:.72rem;color:var(--muted);white-space:pre-wrap;word-break:break-all;max-height:160px;overflow-y:auto;margin-top:.5rem}
+    .stack-toggle{font-size:.75rem;color:var(--accent);cursor:pointer;margin-top:.4rem;display:inline-block}
+
+    .ss-thumb{max-width:320px;max-height:180px;border-radius:8px;border:1px solid var(--border);cursor:zoom-in;transition:transform .15s,border-color .15s;display:block;margin-top:.25rem}
+    .ss-thumb:hover{transform:scale(1.02);border-color:var(--accent)}
+
+    /* ── Modal ───────────────────────────────────────────────────────────── */
+    .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:9999;align-items:center;justify-content:center}
+    .modal.open{display:flex}
+    .modal-img{max-width:92vw;max-height:90vh;border-radius:12px;border:1px solid var(--border);box-shadow:var(--shadow)}
+    .modal-close{position:fixed;top:1.25rem;right:1.25rem;width:36px;height:36px;background:var(--surface);border:1px solid var(--border);border-radius:50%;color:var(--text);font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s}
+    .modal-close:hover{background:var(--surface2)}
+
+    /* ── Empty state ─────────────────────────────────────────────────────── */
+    .empty{text-align:center;padding:3.5rem 2rem;color:var(--muted);font-size:.9rem}
+    .empty-icon{font-size:2.5rem;margin-bottom:.75rem}
+
+    /* ── Footer ──────────────────────────────────────────────────────────── */
+    .footer{text-align:center;padding:1.5rem;color:var(--muted);font-size:.78rem;border-top:1px solid var(--border);margin-top:2rem}
+
+    /* ── Scrollbar ───────────────────────────────────────────────────────── */
+    ::-webkit-scrollbar{width:5px;height:5px}
+    ::-webkit-scrollbar-track{background:var(--surface)}
+    ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+    ::-webkit-scrollbar-thumb:hover{background:var(--muted)}
+
+    /* ── Responsive ──────────────────────────────────────────────────────── */
+    @media(max-width:1024px){
+      .summary{grid-template-columns:repeat(3,1fr)}
+      .charts{grid-template-columns:1fr}
+    }
+    @media(max-width:680px){
+      .summary{grid-template-columns:repeat(2,1fr)}
+      .main{padding:1rem}
+      .header{padding:1.25rem 1rem}
+      .tbl-header,.row-head{grid-template-columns:14px 1fr 90px 28px}
+      .tbl-header .h-browser,.tbl-header .h-dur,
+      .row-head .browser-chip,.row-head .dur{display:none}
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Header ──────────────────────────────────────────────────────────── -->
+<div class="header">
+  <div class="header-inner">
+    <div class="logo">
+      <div class="logo-icon">&#9881;</div>
+      <div>
+        <div class="header-title">{{TITLE}}</div>
+        <div class="header-sub">Automated Test Execution Report</div>
+      </div>
+    </div>
+    <div class="header-meta">
+      <span>Generated: <strong>{{GENERATED_AT}}</strong></span>
+      <span>Environment: <strong>{{ENVIRONMENT}}</strong></span>
+    </div>
+  </div>
+</div>
+
+<!-- ── Main ────────────────────────────────────────────────────────────── -->
+<div class="main">
+
+  <!-- Summary cards -->
+  <div class="summary">
+    <div class="card neutral">
+      <div class="card-icon">&#128196;</div>
+      <div class="card-label">Total Tests</div>
+      <div class="card-value">{{TOTAL}}</div>
+      <div class="card-sub">Test cases executed</div>
+    </div>
+    <div class="card pass">
+      <div class="card-icon">&#10003;</div>
+      <div class="card-label">Passed</div>
+      <div class="card-value">{{PASSED}}</div>
+      <div class="card-sub">Tests successful</div>
+    </div>
+    <div class="card fail">
+      <div class="card-icon">&#10007;</div>
+      <div class="card-label">Failed</div>
+      <div class="card-value">{{FAILED}}</div>
+      <div class="card-sub">Tests failed</div>
+    </div>
+    <div class="card skip">
+      <div class="card-icon">&#8212;</div>
+      <div class="card-label">Skipped</div>
+      <div class="card-value">{{SKIPPED}}</div>
+      <div class="card-sub">Tests skipped</div>
+    </div>
+    <div class="card accent">
+      <div class="card-icon">&#9201;</div>
+      <div class="card-label">Duration</div>
+      <div class="card-value">{{TOTAL_DURATION}}</div>
+      <div class="card-sub">Total execution time</div>
+    </div>
+  </div>
+
+  <!-- Charts -->
+  <div class="charts">
+    <div class="chart-card">
+      <div class="chart-title">&#9685; Test Distribution</div>
+      <div class="donut-wrap">
+        <canvas id="donutChart"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">&#9670; Pass Rate &amp; Browser Breakdown</div>
+      <div class="rate-grid">
+        <div class="ring-wrap">
+          <div class="ring">
+            <div class="ring-inner">
+              <div class="ring-pct">{{PASS_RATE}}%</div>
+              <div class="ring-lbl">Pass Rate</div>
+            </div>
+          </div>
+        </div>
+        <div class="browser-list" id="browserBreakdown"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <div class="search-wrap">
+      <span class="search-icon">&#128269;</span>
+      <input class="search-input" type="text" id="searchInput"
+             placeholder="Search tests by name or description…" oninput="render()"/>
+    </div>
+    <button class="filter-btn active"    id="btn-ALL"     onclick="filter('ALL')">All &nbsp;<strong>{{TOTAL}}</strong></button>
+    <button class="filter-btn pass-btn"  id="btn-PASSED"  onclick="filter('PASSED')">&#10003; Passed &nbsp;<strong>{{PASSED}}</strong></button>
+    <button class="filter-btn fail-btn"  id="btn-FAILED"  onclick="filter('FAILED')">&#10007; Failed &nbsp;<strong>{{FAILED}}</strong></button>
+    <button class="filter-btn skip-btn"  id="btn-SKIPPED" onclick="filter('SKIPPED')">&#8212; Skipped &nbsp;<strong>{{SKIPPED}}</strong></button>
+  </div>
+
+  <div class="result-meta" id="resultMeta"></div>
+
+  <!-- Test table -->
+  <div class="test-table">
+    <div class="tbl-header">
+      <span></span>
+      <span>Test</span>
+      <span>Status</span>
+      <span class="h-browser">Browser</span>
+      <span class="h-dur">Duration</span>
+      <span></span>
+    </div>
+    <div id="tableBody"></div>
+  </div>
+
+</div><!-- /main -->
+
+<!-- Footer -->
+<div class="footer">
+  Custom Reporter &mdash; {{GENERATED_AT}} &mdash; {{ENVIRONMENT}}
+</div>
+
+<!-- Screenshot modal -->
+<div class="modal" id="modal" onclick="closeModal(event)">
+  <button class="modal-close" onclick="closeModal(event)">&#10005;</button>
+  <img class="modal-img" id="modalImg" src="" alt="Screenshot"/>
+</div>
+
+<!-- ── Scripts ──────────────────────────────────────────────────────────── -->
+<script>
+/* ── Data injected by Java ──────────────────────────────────────────────── */
+const testData = {{TEST_DATA_JSON}};
+
+/* ── State ──────────────────────────────────────────────────────────────── */
+let activeFilter = 'ALL';
+let openRows     = new Set();
+
+/* ── Init ───────────────────────────────────────────────────────────────── */
+document.addEventListener('DOMContentLoaded', () => {
+  initChart();
+  initBrowserBars();
+  render();
+});
+
+/* ── Doughnut chart ─────────────────────────────────────────────────────── */
+function initChart() {
+  const passed  = testData.filter(t => t.status === 'PASSED').length;
+  const failed  = testData.filter(t => t.status === 'FAILED').length;
+  const skipped = testData.filter(t => t.status === 'SKIPPED').length;
+  if (passed + failed + skipped === 0) return;
+
+  new Chart(document.getElementById('donutChart'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Passed', 'Failed', 'Skipped'],
+      datasets:[{
+        data: [passed, failed, skipped],
+        backgroundColor: ['#3fb950','#f85149','#d29922'],
+        borderColor:     ['#0d1117','#0d1117','#0d1117'],
+        borderWidth: 3,
+        hoverOffset: 8
+      }]
+    },
+    options:{
+      cutout:'72%',
+      animation:{animateRotate:true,duration:800},
+      plugins:{
+        legend:{
+          position:'bottom',
+          labels:{color:'#8b949e',padding:18,font:{size:12},usePointStyle:true,pointStyleWidth:10}
+        },
+        tooltip:{
+          callbacks:{
+            label: ctx => ` ${ctx.label}: ${ctx.parsed} (${Math.round(ctx.parsed/testData.length*100)}%)`
+          }
+        }
+      }
+    }
+  });
+}
+
+/* ── Browser breakdown bars ─────────────────────────────────────────────── */
+function initBrowserBars() {
+  const map = {};
+  testData.forEach(t => {
+    const b = (t.browser || 'unknown').toLowerCase();
+    map[b] = (map[b] || 0) + 1;
+  });
+  const total = testData.length || 1;
+  const el    = document.getElementById('browserBreakdown');
+  Object.entries(map).sort((a,b)=>b[1]-a[1]).forEach(([name, count]) => {
+    const pct = Math.round(count/total*100);
+    el.innerHTML += `
+      <div class="browser-row">
+        <span class="b-name">${esc(cap(name))}</span>
+        <div class="b-track"><div class="b-fill" style="width:${pct}%"></div></div>
+        <span class="b-count">${count}</span>
+      </div>`;
+  });
+}
+
+/* ── Filter & render ────────────────────────────────────────────────────── */
+function filter(f) {
+  activeFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('btn-'+f).classList.add('active');
+  render();
+}
+
+function render() {
+  const q = document.getElementById('searchInput').value.toLowerCase().trim();
+  const list = testData.filter(t => {
+    if (activeFilter !== 'ALL' && t.status !== activeFilter) return false;
+    if (!q) return true;
+    return (t.testName||'').toLowerCase().includes(q)
+        || (t.description||'').toLowerCase().includes(q)
+        || (t.browser||'').toLowerCase().includes(q);
+  });
+
+  document.getElementById('resultMeta').textContent =
+    `Showing ${list.length} of ${testData.length} tests`;
+
+  const body = document.getElementById('tableBody');
+  if (!list.length) {
+    body.innerHTML = `<div class="empty"><div class="empty-icon">&#128269;</div>No tests match the current filter.</div>`;
+    return;
+  }
+
+  body.innerHTML = list.map((t, i) => {
+    const id   = 'r' + i;
+    const dur  = fmt(t.durationMs);
+    const open = openRows.has(id);
+    const hasDetails = t.errorMessage || t.screenshotBase64 || (t.logs && t.logs.length > 0);
+
+    let bodyContent = '';
+
+    if (t.logs && t.logs.length) {
+      bodyContent += `<div class="section-lbl">&#9776; Execution Logs</div>
+        <ul class="log-list">${t.logs.map(l=>`<li>${esc(l)}</li>`).join('')}</ul>`;
+    }
+    if (t.errorMessage) {
+      bodyContent += `<div class="section-lbl">&#9888; Error</div>
+        <div class="err-box">${esc(t.errorMessage)}</div>`;
+    }
+    if (t.stackTrace) {
+      bodyContent += `<span class="stack-toggle" onclick="toggleStack('st${i}')">&#9656; Show stack trace</span>
+        <div class="stack-box" id="st${i}" style="display:none">${esc(t.stackTrace)}</div>`;
+    }
+    if (t.screenshotBase64) {
+      bodyContent += `<div class="section-lbl">&#128247; Screenshot</div>
+        <img class="ss-thumb" src="${t.screenshotBase64}" alt="screenshot"
+             onclick="openModal(event,'${t.screenshotBase64}')"/>`;
+    }
+
+    return `
+    <div class="test-row" id="${id}">
+      <div class="row-head" onclick="toggle('${id}')">
+        <div class="dot ${t.status}"></div>
+        <div>
+          <div class="t-name">${esc(t.description||t.testName)}</div>
+          <div class="t-desc">${esc(t.testName)}</div>
+        </div>
+        <span class="badge ${t.status}">${t.status}</span>
+        <span class="browser-chip" title="${esc(t.suiteName||t.browser||'')}">${esc(cap(t.browser||'–'))}</span>
+        <span class="dur">${dur}</span>
+        <span class="chevron${open?' open':''}" id="ch${id}">${hasDetails?'⌄':''}</span>
+      </div>
+      ${hasDetails ? `<div class="row-body${open?' open':''}" id="b${id}">${bodyContent}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function toggle(id) {
+  const body = document.getElementById('b'+id);
+  const icon = document.getElementById('ch'+id);
+  if (!body) return;
+  const opened = body.classList.toggle('open');
+  if (icon) icon.classList.toggle('open', opened);
+  opened ? openRows.add(id) : openRows.delete(id);
+}
+
+function toggleStack(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const vis = el.style.display === 'none';
+  el.style.display = vis ? 'block' : 'none';
+  el.previousElementSibling.textContent = vis ? '▼ Hide stack trace' : '▶ Show stack trace';
+}
+
+/* ── Modal ──────────────────────────────────────────────────────────────── */
+function openModal(e, src) {
+  e.stopPropagation();
+  document.getElementById('modalImg').src = src;
+  document.getElementById('modal').classList.add('open');
+}
+function closeModal(e) {
+  if (e) e.stopPropagation();
+  document.getElementById('modal').classList.remove('open');
+  document.getElementById('modalImg').src = '';
+}
+document.addEventListener('keydown', e => { if (e.key==='Escape') closeModal(); });
+
+/* ── Helpers ────────────────────────────────────────────────────────────── */
+function fmt(ms) {
+  if (!ms) return '—';
+  return ms >= 1000 ? (ms/1000).toFixed(2)+'s' : ms+'ms';
+}
+function cap(s) {
+  if (!s) return s;
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+function esc(s) {
+  if (!s) return '';
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>

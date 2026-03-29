@@ -36,6 +36,14 @@ jobs:
           BUILD_ID: ${{ github.run_id }}
         run: mvn test -P browserstack
 
+      - name: Upload Custom HTML report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: custom-report-${{ github.run_id }}
+          path: target/custom-reports/
+          retention-days: 7
+
       - name: Upload Extent Spark report
         uses: actions/upload-artifact@v4
         if: always()
