@@ -1,5 +1,6 @@
 package com.amazon.base;
 
+import com.amazon.reporter.CustomReportManager;
 import com.amazon.utils.ConfigReader;
 import io.github.bonigarcia.wdm.WebDriverManager;
 import org.openqa.selenium.MutableCapabilities;
@@ -43,6 +44,8 @@ public class BaseTest {
                 : createLocalDriver(browser);
 
         driverThreadLocal.set(driver);
+        CustomReportManager.getInstance().registerDriver(driver);
+        CustomReportManager.getInstance().setBrowser(browser);
         driver.get(ConfigReader.getBaseUrl());
     }
 
@@ -50,6 +53,7 @@ public class BaseTest {
     public void tearDown() {
         WebDriver driver = driverThreadLocal.get();
         if (driver != null) {
+            CustomReportManager.getInstance().unregisterDriver();
             driver.quit();
             driverThreadLocal.remove();
         }

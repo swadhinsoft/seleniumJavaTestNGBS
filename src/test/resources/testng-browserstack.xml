@@ -4,7 +4,7 @@
 
     <listeners>
         <listener class-name="com.amazon.utils.ExtentTestListener"/>
-        <listener class-name="com.amazon.reporter.CustomReportListener"/>
+        <listener class-name="com.amazon.reporter.adapter.TestNGListener"/>
     </listeners>
 
     <!-- Chrome Latest on Windows 10 -->

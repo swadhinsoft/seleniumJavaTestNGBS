@@ -1,6 +1,6 @@
-package com.amazon.reporter;
+package com.amazon.reporter.adapter;
 
-import com.amazon.base.BaseTest;
+import com.amazon.reporter.CustomReportManager;
 import com.amazon.reporter.model.TestResultModel;
 import org.openqa.selenium.OutputType;
 import org.openqa.selenium.TakesScreenshot;
@@ -14,7 +14,18 @@ import org.testng.ITestResult;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 
-public class CustomReportListener implements ITestListener, ISuiteListener {
+/**
+ * TestNG adapter for the custom reporter.
+ * Hooks into TestNG's ITestListener + ISuiteListener event system.
+ *
+ * Register in testng.xml:
+ *   <listener class-name="com.amazon.reporter.adapter.TestNGListener"/>
+ *
+ * The test base class must call:
+ *   CustomReportManager.getInstance().registerDriver(driver)  — in @BeforeMethod
+ *   CustomReportManager.getInstance().unregisterDriver()      — in @AfterMethod
+ */
+public class TestNGListener implements ITestListener, ISuiteListener {
 
     private final CustomReportManager manager = CustomReportManager.getInstance();
 
@@ -22,13 +33,16 @@ public class CustomReportListener implements ITestListener, ISuiteListener {
 
     @Override
     public void onTestStart(ITestResult result) {
+        // Browser: prefer TestNG parameter, fall back to registered value
         String browser = param(result, "browser");
-        String os      = param(result, "os");
-        String suite   = result.getTestContext().getName();
-        String desc    = result.getMethod().getDescription();
+        if (browser.isEmpty()) browser = manager.getRegisteredBrowser();
+
+        String os    = param(result, "os");
+        String suite = result.getTestContext().getName();
+        String desc  = result.getMethod().getDescription();
 
         manager.startTest(result.getMethod().getMethodName(), desc, suite, browser, os);
-        manager.getCurrentTest().addLog("Browser: " + (browser.isEmpty() ? "chrome" : browser));
+        manager.getCurrentTest().addLog("Browser: " + browser);
         if (!os.isEmpty()) manager.getCurrentTest().addLog("OS: " + os);
     }
 
@@ -45,24 +59,18 @@ public class CustomReportListener implements ITestListener, ISuiteListener {
         if (m == null) return;
 
         m.addLog("Test FAILED — " + result.getThrowable().getMessage());
-
-        // Error details
         m.setErrorMessage(result.getThrowable().getMessage());
-        m.setStackTrace(stackTrace(result.getThrowable()));
+        m.setStackTrace(toStackTrace(result.getThrowable()));
 
-        // Screenshot as base64 (self-contained report)
-        Object instance = result.getInstance();
-        if (instance instanceof BaseTest) {
-            WebDriver driver = ((BaseTest) instance).getDriver();
-            if (driver != null) {
-                try {
-                    String base64 = "data:image/png;base64,"
-                            + ((TakesScreenshot) driver).getScreenshotAs(OutputType.BASE64);
-                    m.setScreenshotBase64(base64);
-                    m.addLog("Screenshot captured");
-                } catch (Exception e) {
-                    m.addLog("Screenshot capture failed: " + e.getMessage());
-                }
+        // Screenshot — driver pushed by the test base class, no BaseTest import needed
+        WebDriver driver = manager.getRegisteredDriver();
+        if (driver != null) {
+            try {
+                m.setScreenshotBase64("data:image/png;base64,"
+                        + ((TakesScreenshot) driver).getScreenshotAs(OutputType.BASE64));
+                m.addLog("Screenshot captured");
+            } catch (Exception e) {
+                m.addLog("Screenshot capture failed: " + e.getMessage());
             }
         }
 
@@ -80,19 +88,13 @@ public class CustomReportListener implements ITestListener, ISuiteListener {
         manager.finishTest("SKIPPED");
     }
 
-    @Override
-    public void onTestFailedButWithinSuccessPercentage(ITestResult result) {}
-
-    @Override
-    public void onStart(ITestContext context) {}
-
-    @Override
-    public void onFinish(ITestContext context) {}
+    @Override public void onTestFailedButWithinSuccessPercentage(ITestResult r) {}
+    @Override public void onStart(ITestContext ctx)  {}
+    @Override public void onFinish(ITestContext ctx) {}
 
     // ── ISuiteListener — flush once after all parallel tests finish ──────────
 
-    @Override
-    public void onStart(ISuite suite) {}
+    @Override public void onStart(ISuite suite)  {}
 
     @Override
     public void onFinish(ISuite suite) {
@@ -106,7 +108,7 @@ public class CustomReportListener implements ITestListener, ISuiteListener {
         return val != null ? val : "";
     }
 
-    private String stackTrace(Throwable t) {
+    private String toStackTrace(Throwable t) {
         StringWriter sw = new StringWriter();
         t.printStackTrace(new PrintWriter(sw));
         return sw.toString();
