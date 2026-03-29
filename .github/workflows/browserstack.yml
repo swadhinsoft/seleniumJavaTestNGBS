@@ -1,0 +1,47 @@
+name: BrowserStack CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:          # enables manual trigger from GitHub UI
+
+jobs:
+  test:
+    name: Run Tests on BrowserStack
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Java 11
+        uses: actions/setup-java@v4
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+
+      - name: Cache Maven dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-maven-
+
+      - name: Run tests on BrowserStack
+        env:
+          BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
+          BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
+          BUILD_ID: ${{ github.run_id }}
+        run: mvn test -P browserstack
+
+      - name: Upload TestNG reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: testng-reports-${{ github.run_id }}
+          path: |
+            target/surefire-reports/
+            target/surefire-reports/*.xml
+          retention-days: 7
